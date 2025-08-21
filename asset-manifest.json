@@ -1,0 +1,21 @@
+{
+  "files": {
+    "main.css": "/Financial-Toolkit-/static/css/main.cf890fdb.css",
+    "main.js": "/Financial-Toolkit-/static/js/main.3a8a3353.js",
+    "static/js/239.d9a96e97.chunk.js": "/Financial-Toolkit-/static/js/239.d9a96e97.chunk.js",
+    "static/js/977.3cb0eab0.chunk.js": "/Financial-Toolkit-/static/js/977.3cb0eab0.chunk.js",
+    "static/js/667.e0b141db.chunk.js": "/Financial-Toolkit-/static/js/667.e0b141db.chunk.js",
+    "static/js/453.161bd249.chunk.js": "/Financial-Toolkit-/static/js/453.161bd249.chunk.js",
+    "index.html": "/Financial-Toolkit-/index.html",
+    "main.cf890fdb.css.map": "/Financial-Toolkit-/static/css/main.cf890fdb.css.map",
+    "main.3a8a3353.js.map": "/Financial-Toolkit-/static/js/main.3a8a3353.js.map",
+    "239.d9a96e97.chunk.js.map": "/Financial-Toolkit-/static/js/239.d9a96e97.chunk.js.map",
+    "977.3cb0eab0.chunk.js.map": "/Financial-Toolkit-/static/js/977.3cb0eab0.chunk.js.map",
+    "667.e0b141db.chunk.js.map": "/Financial-Toolkit-/static/js/667.e0b141db.chunk.js.map",
+    "453.161bd249.chunk.js.map": "/Financial-Toolkit-/static/js/453.161bd249.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.cf890fdb.css",
+    "static/js/main.3a8a3353.js"
+  ]
+}
