@@ -115,7 +115,7 @@ export const useWebWorker = (workerPath, options = {}) => {
   };
 };
 
-// Hook specifically for AMC calculations
+
   export const useAMCCalculationWorker = () => {
   const { isReady, error, postMessage, on, terminate } = useWebWorker(
     `${process.env.PUBLIC_URL}/amcCalculationWorker.js`
