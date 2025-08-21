@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Build Project (do not fail on lint warnings)
-        # CI=false prevents CRA from treating lint warnings as build-breaking errors
+      
         run: CI=false npm run build
 
       - name: Deploy to GitHub Pages
