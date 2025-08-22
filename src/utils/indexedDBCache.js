@@ -120,7 +120,6 @@ export const amcCache = {
       await tx.store.put(cacheEntry);
       await tx.done;
 
-      console.log(`✅ AMC calculation cached: ${calculationId}`);
       return cacheEntry;
     } catch (error) {
       console.error("Error storing AMC calculation:", error);
@@ -142,9 +141,6 @@ export const amcCache = {
         await tx.store.put(result);
         await tx.done;
 
-        console.log(
-          `📄 AMC calculation retrieved from cache: ${calculationId}`
-        );
         return result;
       }
 
@@ -199,7 +195,7 @@ export const amcCache = {
     try {
       const db = await initDB();
       await db.delete(STORES.AMC_CALCULATIONS, calculationId);
-      console.log(`🗑️ AMC calculation deleted: ${calculationId}`);
+     
     } catch (error) {
       console.error("Error deleting AMC calculation:", error);
       throw error;
@@ -228,7 +224,7 @@ export const fileCache = {
       };
 
       await db.put(STORES.EXCEL_FILES, cacheEntry);
-      console.log(`📁 Excel file cached: ${file.name}`);
+     
       return { fileHash, cacheEntry };
     } catch (error) {
       console.error("Error storing Excel file:", error);
@@ -248,7 +244,6 @@ export const fileCache = {
         result.lastAccessed = Date.now();
         await db.put(STORES.EXCEL_FILES, result);
 
-        console.log(`📄 Excel file retrieved from cache: ${result.fileName}`);
       }
 
       return result;
@@ -277,7 +272,7 @@ export const fileCache = {
     try {
       const db = await initDB();
       await db.delete(STORES.EXCEL_FILES, fileHash);
-      console.log(`🗑️ Excel file deleted from cache: ${fileHash}`);
+      
     } catch (error) {
       console.error("Error deleting Excel file:", error);
       throw error;
@@ -360,10 +355,6 @@ export const cacheManager = {
           deletedCount++;
         }
       }
-
-      console.log(
-        `🧹 Cache cleanup completed: ${deletedCount} entries deleted`
-      );
       return deletedCount;
     } catch (error) {
       console.error("Error during cache cleanup:", error);
@@ -383,7 +374,6 @@ export const cacheManager = {
         db.clear(STORES.CALCULATION_METADATA),
       ]);
 
-      console.log("🗑️ All cache cleared");
     } catch (error) {
       console.error("Error clearing cache:", error);
       throw error;
