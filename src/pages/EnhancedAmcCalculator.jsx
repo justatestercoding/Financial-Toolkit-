@@ -34,8 +34,8 @@ const ManualProductForm = ({ onAddProduct }) => {
       !invoiceValue ||
       parseFloat(invoiceValue) <= 0 ||
       !invoiceNumber.trim() || '',
-      invoiceNumber.length < 5 ||
-      invoiceNumber.length > 20 ||
+      invoiceNumber.length < 3 ||
+      invoiceNumber.length > 25 ||
       !location.trim() ||
       !uatDate
     ) {
@@ -554,7 +554,7 @@ const excelEpoch = new Date(1900, 0, 1);
         productName: product.productName,
         location: product.location || "Unknown",
         invoiceValue: product.invoiceValue,
-        invoiceNumber: product.invoiceNumber || '',
+        invoiceNumber: product.invoiceNumber ,
         quantity: product.quantity,
         amcStartDate: product.amcStartDate,
         uatDate: product.uatDate,
