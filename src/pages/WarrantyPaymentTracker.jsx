@@ -1009,26 +1009,6 @@ const WarrantyExportControls = () => {
               Export to CSV
             </button>
             
-            <button
-              onClick={() => handleExport('pdf')}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                textAlign: 'left',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.875rem',
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f8fafc'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              <FileText size={16} color="#dc2626" />
-              Export to PDF
-            </button>
             
             <button
               onClick={() => handleExport('json')}

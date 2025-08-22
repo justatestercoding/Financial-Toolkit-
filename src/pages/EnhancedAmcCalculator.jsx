@@ -649,7 +649,7 @@ const excelEpoch = new Date(1900, 0, 1);
       roiOptions: roiGroups,
     };
   }, [currentResults, rawResults, settings.roiRates]);
-  console.log("Filtered Results Sample:", filteredResults.slice(0,3));
+  
 
 
   // Handle AMC calculation
@@ -2373,9 +2373,7 @@ const excelEpoch = new Date(1900, 0, 1);
             >
               {Object.entries(quarterTotals)
                 .sort(([a], [b]) => {
-                  // Debug: log the keys to see their format
-                  console.log('Sorting quarter keys:', a, b);
-                  
+                
                   // Handle both possible formats: "Quarter-Year" or "Year-Quarter"
                   let quarterA, yearA, quarterB, yearB;
                   
