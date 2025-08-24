@@ -1,6 +1,4 @@
-// AMC Calculation Web Worker - Fixed Critical Issues
 
-// Quarter definitions (business critical) - matching Python implementation
 const QUARTERS = ["JFM", "AMJ", "JAS", "OND"];
 const QUARTER_ORDER = { JFM: 0, AMJ: 1, JAS: 2, OND: 3 };
 
@@ -30,7 +28,6 @@ function getActualQuarterDays(quarter, year) {
   return Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 }
 
-// FIXED: Accurate date arithmetic matching Python's relativedelta behavior
 function addYears(date, years) {
   const result = new Date(date);
   const originalMonth = result.getMonth();
@@ -75,7 +72,7 @@ function addRelativeDelta(date, years = 0, months = 0, days = 0) {
   return result;
 }
 
-// FIXED: Main AMC calculation with corrected date handling and input validation
+// FIXED: Main AMC calculation with corrected split details data flow
 function calculateAmcSchedule(
   startDate,
   invoiceNumber,
@@ -101,6 +98,7 @@ function calculateAmcSchedule(
   const splitDetails = {};
   const quarterContributions = {};
 
+  // STEP 1: Calculate all quarter contributions
   for (let yearIndex = 0; yearIndex < roiSplit.length; yearIndex++) {
     const roi = roiSplit[yearIndex];
     
@@ -108,8 +106,7 @@ function calculateAmcSchedule(
       console.warn(`Invalid ROI rate at index ${yearIndex}: ${roi}, skipping`);
       continue;
     }
-    
-    // CRITICAL FIX: Exact date arithmetic matching Python relativedelta
+ 
     const yearStart = new Date(startDate);
     yearStart.setFullYear(startDate.getFullYear() + yearIndex);
     // Ensure we preserve the exact time component
@@ -145,10 +142,8 @@ function calculateAmcSchedule(
           continue;
         }
 
-        // CRITICAL FIX: Exact day calculation matching Python's inclusive date arithmetic
         const msPerDay = 1000 * 60 * 60 * 24;
         
-        // Python uses inclusive date ranges - both start and end dates are included
         // Set times to midnight to avoid timezone issues
         const qStartMidnight = new Date(qStart.getFullYear(), qStart.getMonth(), qStart.getDate());
         const qEndMidnight = new Date(qEnd.getFullYear(), qEnd.getMonth(), qEnd.getDate());
@@ -158,7 +153,6 @@ function calculateAmcSchedule(
         const totalDays = Math.round((qEndMidnight.getTime() - qStartMidnight.getTime()) / msPerDay) + 1;
         const overlapDays = Math.round((overlapEndMidnight.getTime() - overlapStartMidnight.getTime()) / msPerDay) + 1;
 
-        // CRITICAL FIX: Display year logic must match Python exactly
         const displayYear = qStart.getFullYear();
 
         const proratedAmount = (overlapDays / totalDays) * fullQuarterAmount;
@@ -170,12 +164,19 @@ function calculateAmcSchedule(
         if (!quarterContributions[qName][yearIndex]) {
           quarterContributions[qName][yearIndex] = {};
         }
-        quarterContributions[qName][yearIndex][displayYear] = proratedAmount;
+        quarterContributions[qName][yearIndex][displayYear] = {
+          proratedAmount: proratedAmount,
+          fullQuarterAmount: fullQuarterAmount,
+          overlapDays: overlapDays,
+          totalDays: totalDays,
+          roi: roi,
+          yearIndex: yearIndex
+        };
       }
     }
   }
 
-  // Process quarters - improved error handling
+  // STEP 2: Process quarters and build detailed split information
   const processedQuarters = new Set();
 
   for (const qName in quarterContributions) {
@@ -203,6 +204,7 @@ function calculateAmcSchedule(
       let totalAmount = 0;
       const contributions = [];
 
+      // FIXED: Better data extraction from quarterContributions
       for (const yearIndex in yearMap) {
         const displayYearMap = yearMap[yearIndex];
         if (displayYearMap[displayYear]) {
@@ -211,9 +213,12 @@ function calculateAmcSchedule(
             continue;
           }
           
-          const roi = roiSplit[yearIdx];
-          const fullQuarterAmount = (totalAmc * roi) / 4;
-          const proratedAmount = displayYearMap[displayYear];
+          const contributionData = displayYearMap[displayYear];
+          const roi = contributionData.roi;
+          const fullQuarterAmount = contributionData.fullQuarterAmount;
+          const proratedAmount = contributionData.proratedAmount;
+          const overlapDays = contributionData.overlapDays;
+          const totalDays = contributionData.totalDays;
 
           const displayYearsForThisAmcYear = Object.keys(displayYearMap)
             .map(y => parseInt(y))
@@ -226,7 +231,8 @@ function calculateAmcSchedule(
             actualAmount = proratedAmount;
             calcType = `Prorated (Y${yearIdx + 1})`;
           } else if (displayYearsForThisAmcYear.length > 1) {
-            const firstOccurrenceAmount = displayYearMap[displayYearsForThisAmcYear[0]];
+            const firstOccurrenceData = displayYearMap[displayYearsForThisAmcYear[0]];
+            const firstOccurrenceAmount = firstOccurrenceData.proratedAmount;
             const residual = fullQuarterAmount - firstOccurrenceAmount;
             actualAmount = Math.max(0, residual);
             calcType = `Residual (Y${yearIdx + 1} = ${fullQuarterAmount.toFixed(4)} - ${firstOccurrenceAmount.toFixed(4)})`;
@@ -238,53 +244,56 @@ function calculateAmcSchedule(
           actualAmount = Math.max(0, actualAmount);
           totalAmount += actualAmount;
 
+          // FIXED: Store complete contribution data with all details
           contributions.push({
             "AMC Year": yearIdx + 1,
             "ROI Rate": roi,
             "Full Quarter Amount": fullQuarterAmount,
             "Prorated Amount": proratedAmount,
             "Actual Amount": actualAmount,
-            "Calculation Type": calcType
+            "Calculation Type": calcType,
+            "Overlap Days": overlapDays,
+            "Total Days": totalDays,
+            "Display Year": displayYear,
+            "Quarter": qName
           });
         }
       }
 
-      // FIXED: Consistent rounding matching Python
-      const withoutGst = Math.round(totalAmount * 100) / 100;
-      const withGst = Math.round(withoutGst * (1 + gstRate) * 100) / 100;
+      const withoutGst = totalAmount; 
+      const withGst = withoutGst * (1 + gstRate);
 
       schedule[key] = [withGst, withoutGst];
       
-      // Store split details with corrected day calculations
+      // FIXED: Store split details with complete, non-zero data
       splitDetails[key] = contributions.map(contrib => {
-        const actualTotalDaysInQuarter = 91; // Standardized to match Python
-        const actualDaysUsed = Math.round((contrib["Prorated Amount"] / contrib["Full Quarter Amount"]) * actualTotalDaysInQuarter);
-        
         return {
           "AMC Year": contrib["AMC Year"],
-          "Quarter": qName,
+          "Quarter": contrib["Quarter"],
           "ROI Rate": contrib["ROI Rate"],
           "Full Quarter Amount": contrib["Full Quarter Amount"],
           "Prorated Amount": contrib["Prorated Amount"],
           "Actual Amount": contrib["Actual Amount"],
           "Calculation Type": contrib["Calculation Type"],
-          "Display Year": displayYear,
+          "Display Year": contrib["Display Year"],
           "Total Amount": totalAmount,
           "Current Year Contribution": contrib["Calculation Type"].includes("Prorated") ? contrib["Actual Amount"] : 0,
           "Residual from Previous": contrib["Calculation Type"].includes("Residual") ? contrib["Actual Amount"] : 0,
           "Amount Without GST": withoutGst,
           "Amount With GST": withGst,
-          "Days": actualDaysUsed,
-          "Total Days in Quarter": actualTotalDaysInQuarter
+          "Days": contrib["Overlap Days"] || 91, // Use actual overlap days
+          "Total Days in Quarter": contrib["Total Days"] || 91, // Use actual total days
+          "Percentage Used": contrib["Total Days"] ? ((contrib["Overlap Days"] / contrib["Total Days"]) * 100).toFixed(2) + "%" : "100%"
         };
       });
+
     });
   }
 
   return { schedule, splitDetails };
 }
 
-// FIXED: Calculate AMC schedule for a single product with improved error handling
+// FIXED: Calculate AMC schedule for a single product with improved split details handling
 function calculateProductAMC(product, settings = {}) {
   const roiRates = settings.roiRates || ROI_RATES;
   const amcPercentage = settings.amcPercentage || AMC_PERCENTAGE;
@@ -292,7 +301,7 @@ function calculateProductAMC(product, settings = {}) {
   const amcYears = settings.amcYears || 4;
 
   try {
-    // FIXED: Better input validation and error messages
+    
     if (!product || typeof product !== 'object') {
       throw new Error('Invalid product object provided');
     }
@@ -318,7 +327,6 @@ function calculateProductAMC(product, settings = {}) {
       );
     }
 
-    // FIXED: AMC starts exactly 3 years after UAT (matching Python relativedelta)
     const amcStartDate = addYears(uatDate, 3);
 
     // Calculate using the sophisticated logic
@@ -340,9 +348,12 @@ function calculateProductAMC(product, settings = {}) {
       gstRate
     );
 
-    // FIXED: Convert to quarters array format matching Python output structure
-    const quarters = [];
 
+    // FIXED: Convert to quarters array format with proper split details attachment
+    const quarters = [];
+    const productSplitDetails = {};
+
+    // CRITICAL FIX FOR ISSUE 4: Process schedule FIRST to populate quarters array
     for (const [key, amounts] of Object.entries(schedule)) {
       if (!Array.isArray(amounts) || amounts.length !== 2) {
         console.warn(`Invalid amounts for key ${key}:`, amounts);
@@ -358,23 +369,52 @@ function calculateProductAMC(product, settings = {}) {
         continue;
       }
 
-      quarters.push({
+      // FIXED: Get split details for this specific quarter
+      const quarterSplitDetails = splitDetails[key] || [];
+      
+
+      // Create quarter object
+      const quarterObj = {
         id: `${product.id || Math.random()}_${key}`,
         quarter: quarter,
         year: yearNum,
         quarterKey: key,
-        startDate: "", // Will be calculated if needed
-        endDate: "", // Will be calculated if needed
-        dueDate: "", // Will be calculated if needed
+        startDate: "", 
+        endDate: "", 
+        dueDate: "",
         baseAmount: withoutGst,
-        roiAmount: withGst - withoutGst - withoutGst * gstRate, // Calculate ROI portion
-        roiPercentage: 0, // Will be calculated from split details
+        roiAmount: withGst - withoutGst, 
+        roiPercentage: 0, 
         gstAmount: withoutGst * gstRate,
         totalAmount: withGst,
         isPaid: false,
         status: "pending",
-        splitDetails: splitDetails[key] || []
-      });
+        splitDetails: quarterSplitDetails // This should now contain non-zero data
+      };
+
+      quarters.push(quarterObj);
+
+      // FIXED: Now populate productSplitDetails AFTER quarter is created and has split details
+      if (quarterSplitDetails.length > 0) {
+        // Convert key format from "YYYY-QQQ" to "QQQ-YYYY" for UI compatibility
+        const uiKey = `${quarter}-${year}`;
+        
+        productSplitDetails[uiKey] = quarterSplitDetails.map(detail => ({
+          amcYear: detail["AMC Year"] ? `Year ${detail["AMC Year"]}` : "Unknown",
+          roiRate: detail["ROI Rate"] || 0,
+          fullQuarterAmount: detail["Full Quarter Amount"] || 0,
+          proratedAmount: detail["Prorated Amount"] || 0,
+          actualAmount: detail["Actual Amount"] || 0,
+          calculationType: detail["Calculation Type"] || "Unknown",
+          currentYearContribution: detail["Current Year Contribution"] || 0,
+          residualFromPrevious: detail["Residual from Previous"] || 0,
+          amountWithoutGst: detail["Amount Without GST"] || 0,  // ✅ Consistent naming
+          amountWithGst: detail["Amount With GST"] || 0,        // ✅ Consistent naming
+          days: detail["Days"] || 90,
+          totalDaysInQuarter: detail["Total Days in Quarter"] || 90,
+          displayYear: detail["Display Year"] || yearNum
+        }));
+      }
     }
 
     // Sort quarters by year and quarter order
@@ -388,7 +428,7 @@ function calculateProductAMC(product, settings = {}) {
     const totalAmcValue = invoiceValue * amcPercentage;
     const totalWithGst = quarters.reduce((sum, q) => sum + (q.totalAmount || 0), 0);
 
-    return {
+    const result = {
       id: product.id || `product_${Date.now()}_${Math.random()}`,
       productName: product.productName || product["Item Name"] || product.name || "Unknown Product",
       location: product.location || product.Location || "Unknown Location",
@@ -397,12 +437,15 @@ function calculateProductAMC(product, settings = {}) {
       invoiceValue: invoiceValue, 
       invoiceNumber: product.invoiceNumber || product.Invoice_Number || "Unknown Invoice",
       quantity: product.quantity || product.Quantity || 1,
-      totalAmcValue: Math.round(totalAmcValue * 100) / 100,
+      totalAmcValue: totalAmcValue,
       quarters: quarters,
       totalQuarters: quarters.length,
-      totalAmountWithGST: Math.round(totalWithGst * 100) / 100,
-      splitDetails: splitDetails
+      totalAmountWithGST: totalWithGst,
+      splitDetails: productSplitDetails
     };
+
+
+    return result;
   } catch (error) {
     console.error('Error calculating AMC for product:', error);
     return {
@@ -542,5 +585,5 @@ self.onmessage = function(event) {
 self.postMessage({
   type: "WORKER_READY",
   capabilities: ["CALCULATE_CHUNK", "CALCULATE_SINGLE"],
-  version: "2.0.0"
+  version: "2.1.1"
 });
