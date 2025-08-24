@@ -16,6 +16,32 @@ import {
   selectFileName,
 } from "../store/selectors/excelSelectors";
 
+const formatIndianNumber = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return '0.00';
+  
+  // First, ensure exactly 2 decimal places and handle rounding
+  const roundedNum = Math.round(parseFloat(num) * 100) / 100;
+  const formattedNum = roundedNum.toFixed(2);
+  
+  // Split into integer and decimal parts
+  const [integerPart, decimalPart] = formattedNum.split('.');
+  
+  // Handle negative numbers
+  const isNegative = roundedNum < 0;
+  const absIntegerPart = integerPart.replace('-', '');
+  
+  if (absIntegerPart.length <= 3) {
+    return (isNegative ? '-' : '') + absIntegerPart + '.' + decimalPart;
+  }
+  
+  // Apply Indian number formatting to integer part
+  const lastThree = absIntegerPart.slice(-3);
+  const otherNumbers = absIntegerPart.slice(0, -3);
+  const formattedOthers = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  
+  const formatted = formattedOthers + ',' + lastThree + '.' + decimalPart;
+  return (isNegative ? '-' : '') + formatted;
+};
 // Manual Product Form Component
 const ManualProductForm = ({ onAddProduct }) => {
   const [formData, setFormData] = useState({
@@ -1009,7 +1035,7 @@ const QuarterPaymentCard = ({ quarter, year, totals, showWithoutGST, paidQuarter
         fontWeight: 800,
         marginBottom: "4px"
       }}>
-        ₹{Math.round(totals.withGst).toLocaleString()}
+        ₹{formatIndianNumber(Math.round(totals.withGst))}
       </div>
       
       <div style={{
@@ -1034,7 +1060,7 @@ const QuarterPaymentCard = ({ quarter, year, totals, showWithoutGST, paidQuarter
           borderRadius: "6px",
           display: "inline-block",
         }}>
-          Without GST: ₹{Math.round(totals.withoutGst).toLocaleString()}
+          Without GST: ₹{formatIndianNumber(Math.round(totals.withoutGst))}
         </div>
       )}
       
@@ -1442,7 +1468,7 @@ const ExportControls = () => {
                               : "#dc2626",
                         }}
                       >
-                        ₹ {item.invoiceValue.toLocaleString()}
+                        ₹ {formatIndianNumber(item.invoiceValue)}
                         {item.invoiceValue > 10000000 && (
                           <span
                             style={{
@@ -1815,7 +1841,7 @@ const ExportControls = () => {
                       {product.productName}
                     </span>
                     <span style={{ color: "#64748b" }}>
-                      ₹{product.invoiceValue.toLocaleString()}
+                      ₹{formatIndianNumber(product.invoiceValue)}
                     </span>
                     <span style={{ color: "#64748b" }}>
                       {product.invoiceNumber || 'N/A'}
@@ -2371,9 +2397,9 @@ const ExportControls = () => {
                   totalProducts: filteredResults.length,
                 }}
                 formatters={{
-                  invoiceValue: (value) => `₹${value?.toLocaleString() || "0"}`,
+                  invoiceValue: (value) => `₹${formatIndianNumber(value || "0")}`,
                   invoiceNumber: (value) => value || "-",
-                  quantity: (value) => value?.toLocaleString() || "0",
+                  quantity: (value) => formatIndianNumber(value || "0"),
                   amcStartDate: (value) =>
                     value ? new Date(value).toLocaleDateString() : "-",
                   uatDate: (value) =>
@@ -2388,7 +2414,7 @@ const ExportControls = () => {
                       )
                       .map((col) => [
                         col.key,
-                        (value) => (value ? `₹${value.toLocaleString()}` : "₹0"),
+                        (value) => (value ? `₹${formatIndianNumber(value)}` : "₹0"),
                       ])
                   ),
                 }}
@@ -2534,7 +2560,7 @@ const ExportControls = () => {
                   marginBottom: "8px",
                 }}
               >
-                ₹{Math.round(totals.withGst).toLocaleString()}
+                ₹{formatIndianNumber(Math.round(totals.withGst))}
               </div>
               
               {showWithoutGST && (
@@ -2549,7 +2575,7 @@ const ExportControls = () => {
                     display: "inline-block",
                   }}
                 >
-                  Without GST: ₹ {Math.round(totals.withoutGst).toLocaleString()}
+                  Without GST: ₹ {formatIndianNumber(Math.round(totals.withoutGst))}
                 </div>
               )}
               
@@ -2699,7 +2725,7 @@ const ExportControls = () => {
                 fontWeight: 800,
                 color: "#374151"
               }}>
-                ₹{(totalPaid + totalBalance).toLocaleString()}
+                ₹{formatIndianNumber((totalPaid + totalBalance))}
               </div>
             </div>
             
@@ -2724,7 +2750,7 @@ const ExportControls = () => {
                 fontWeight: 800,
                 color: "#059669"
               }}>
-                ₹{totalPaid.toLocaleString()}
+                ₹{formatIndianNumber(totalPaid)}
               </div>
               <div style={{
                 fontSize: "0.75rem",
@@ -2756,7 +2782,7 @@ const ExportControls = () => {
                 fontWeight: 800,
                 color: "#d97706"
               }}>
-                ₹{totalBalance.toLocaleString()}
+                ₹{formatIndianNumber(totalBalance)}
               </div>
               <div style={{
                 fontSize: "0.75rem",

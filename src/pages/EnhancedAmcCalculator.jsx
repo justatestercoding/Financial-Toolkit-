@@ -15,6 +15,36 @@ import {
   selectFileName,
 } from "../store/selectors/excelSelectors";
 
+// Custom formatter for Indian number system
+const formatIndianNumber = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return '0';
+  
+  const numStr = Math.abs(num).toString();
+  const [integerPart, decimalPart] = numStr.split('.');
+  
+  if (integerPart.length <= 3) {
+    return (num < 0 ? '-' : '') + integerPart + (decimalPart ? '.' + decimalPart : '');
+  }
+  
+  // Format integer part with Indian number system
+  const lastThree = integerPart.slice(-3);
+  const otherNumbers = integerPart.slice(0, -3);
+  const formattedOthers = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  
+  const formatted = formattedOthers + ',' + lastThree;
+  return (num < 0 ? '-' : '') + formatted + (decimalPart ? '.' + decimalPart : '');
+};
+
+// Custom currency formatter
+const formatIndianCurrency = (amount, showSymbol = true) => {
+  if (amount === null || amount === undefined || isNaN(amount)) return showSymbol ? '₹0' : '0';
+  
+  const formatted = formatIndianNumber(amount);
+  return showSymbol ? `₹${formatted}` : formatted;
+};
+
+
+
 // Manual Product Form Component
 const ManualProductForm = ({ onAddProduct }) => {
   const [formData, setFormData] = useState({
@@ -780,7 +810,7 @@ const excelEpoch = new Date(1900, 0, 1);
           ["Source file:", fileName || "Uploaded data"],
           ["Location filter:", selectedLocation],
           ["Total products:", data.length],
-          ["Total AMC value:", `₹${totalValue.toLocaleString()}`],
+          ["Total AMC value:", `₹${formatIndianCurrency(totalValue)}`],
           ["Calculation settings:"],
           ["AMC percentage:", `${settings.amcPercentage * 100}%`],
           ["GST rate:", `${settings.gstRate * 100}%`],
@@ -1593,7 +1623,7 @@ const excelEpoch = new Date(1900, 0, 1);
                               : "#dc2626",
                         }}
                       >
-                        ₹{item.invoiceValue.toLocaleString()}
+                        ₹{formatIndianNumber(item.invoiceValue)}
                         {item.invoiceValue > 10000000 && (
                           <span
                             style={{
@@ -1734,7 +1764,7 @@ const excelEpoch = new Date(1900, 0, 1);
                 Products
               </h4>
               <p style={{ fontSize: "0.8rem", color: "#64748b", margin: 0 }}>
-                {processedExcelData.length.toLocaleString()} items ready
+                {formatIndianNumber(processedExcelData.length)} items ready
               </p>
             </div>
 
@@ -1838,7 +1868,7 @@ const excelEpoch = new Date(1900, 0, 1);
                       {product.productName}
                     </span>
                     <span style={{ color: "#64748b" }}>
-                      ₹{product.invoiceValue.toLocaleString()}
+                      ₹{formatIndianNumber(product.invoiceValue)}
                     </span>
                     <span style={{ color: "#64748b" }}>
                       {product.invoiceNumber || 'N/A'}
@@ -2524,12 +2554,12 @@ const excelEpoch = new Date(1900, 0, 1);
                       marginBottom: "4px",
                     }}
                   >
-                    ₹{Math.round(totals.withGst).toLocaleString()}
+                    ₹{formatIndianNumber(Math.round(totals.withGst))}
                   </div>
                   {showWithoutGST && (
                     <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
                       Without GST: ₹
-                      {Math.round(totals.withoutGst).toLocaleString()}
+                      {formatIndianCurrency(Math.round(totals.withoutGst))}
                     </div>
                   )}
                 </div>
@@ -2644,12 +2674,12 @@ const excelEpoch = new Date(1900, 0, 1);
                           marginBottom: "4px",
                         }}
                       >
-                        ₹{Math.round(totals.withGst).toLocaleString()}
+                        ₹{formatIndianNumber(Math.round(totals.withGst))}
                       </div>
                       {showWithoutGST && (
                         <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
                           Without GST: ₹
-                          {Math.round(totals.withoutGst).toLocaleString()}
+                          {formatIndianNumber(Math.round(totals.withoutGst))}
                         </div>
                       )}
                     </div>
@@ -2857,16 +2887,16 @@ const excelEpoch = new Date(1900, 0, 1);
                                     {detail.days} / {detail.totalDaysInQuarter}
                                   </td>
                                   <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
-                                    ₹{Math.round(detail.currentYearContribution).toLocaleString()}
+                                    ₹{formatIndianNumber(Math.round(detail.currentYearContribution))}
                                   </td>
                                   <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
-                                    ₹{Math.round(detail.residualFromPrevious).toLocaleString()}
+                                    ₹{formatIndianNumber(Math.round(detail.residualFromPrevious))}
                                   </td>
                                   <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
-                                    ₹{Math.round(detail.amountWithoutGst).toLocaleString()}
+                                    ₹{formatIndianNumber(Math.round(detail.amountWithoutGst))}
                                   </td>
                                   <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
-                                    ₹{Math.round(detail.amountWithGst).toLocaleString()}
+                                    ₹{formatIndianNumber(Math.round(detail.amountWithGst))}
                                   </td>
                                 </tr>
                               ))}
@@ -2875,9 +2905,9 @@ const excelEpoch = new Date(1900, 0, 1);
                         </div>
 
                         <div style={{ marginTop: "8px", fontSize: "0.875rem", fontWeight: 600, color: "#059669" }}>
-                          Quarter Total = ₹{Math.round(details.reduce((sum, d) => sum + d.amountWithoutGst, 0)).toLocaleString()} (Without GST) + 
-                          ₹{Math.round(details.reduce((sum, d) => sum + (d.amountWithGst - d.amountWithoutGst), 0)).toLocaleString()} (GST) = 
-                          ₹{Math.round(details.reduce((sum, d) => sum + d.amountWithGst, 0)).toLocaleString()}
+                          Quarter Total = ₹{formatIndianNumber(Math.round(details.reduce((sum, d) => sum + d.amountWithoutGst, 0)))} (Without GST) + 
+                          ₹{formatIndianNumber(Math.round(details.reduce((sum, d) => sum + (d.amountWithGst - d.amountWithoutGst), 0)))} (GST) = 
+                          ₹{formatIndianNumber((Math.round(details.reduce((sum, d) => sum + d.amountWithGst, 0))))}
                         </div>
                       </div>
                     );
@@ -2988,7 +3018,7 @@ const excelEpoch = new Date(1900, 0, 1);
                   color: "#2563eb",
                 }}
               >
-                {currentSummary?.totalProducts?.toLocaleString() || 0}
+                {formatIndianNumber(currentSummary?.totalProducts || 0)}
               </div>
               <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
                 Products Processed
@@ -3012,7 +3042,7 @@ const excelEpoch = new Date(1900, 0, 1);
                   color: "#059669",
                 }}
               >
-                ₹{(currentSummary?.totalValue || 0).toLocaleString()}
+                ₹{formatIndianNumber(currentSummary?.totalValue || 0)}
               </div>
               <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
                 Total AMC Value
@@ -3183,9 +3213,9 @@ const excelEpoch = new Date(1900, 0, 1);
                 totalProducts: filteredResults.length,
               }}
               formatters={{
-                invoiceValue: (value) => `₹${value?.toLocaleString() || "0"}`,
+                invoiceValue: (value) => `₹${formatIndianNumber(value || 0)}`,
                 invoiceNumber: (value) => value || "-",
-                quantity: (value) => value?.toLocaleString() || "0",
+                quantity: (value) => formatIndianNumber(value || 0),
                 amcStartDate: (value) =>
                   value ? new Date(value).toLocaleDateString() : "-",
                 uatDate: (value) =>
@@ -3200,7 +3230,7 @@ const excelEpoch = new Date(1900, 0, 1);
                     )
                     .map((col) => [
                       col.key,
-                      (value) => (value ? `₹${value.toLocaleString()}` : "₹0"),
+                      (value) => (value ? `₹${formatIndianNumber(value)}` : "₹0"),
                     ])
                 ),
               }}

@@ -14,6 +14,25 @@ import {
   selectHasData,
   selectActiveSheet,
 } from "../store/selectors/excelSelectors";
+// Custom formatter for Indian number system
+const formatIndianNumber = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return '0';
+  
+  const numStr = Math.abs(num).toString();
+  const [integerPart, decimalPart] = numStr.split('.');
+  
+  if (integerPart.length <= 3) {
+    return (num < 0 ? '-' : '') + integerPart + (decimalPart ? '.' + decimalPart : '');
+  }
+  
+  // Format integer part with Indian number system
+  const lastThree = integerPart.slice(-3);
+  const otherNumbers = integerPart.slice(0, -3);
+  const formattedOthers = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  
+  const formatted = formattedOthers + ',' + lastThree;
+  return (num < 0 ? '-' : '') + formatted + (decimalPart ? '.' + decimalPart : '');
+};
 
 const spinKeyframes = `
   @keyframes spin {
@@ -568,9 +587,9 @@ const spinKeyframes = `
 
   const warrantyFormatters = useMemo(() => {
     const formatters = {
-      cost: (value) => (value ? `₹${value.toLocaleString()}` : "₹0"),
+      cost: (value) => (value ? `₹${formatIndianNumber(value)}` : "₹0"),
       invoiceNumber: (value) => value || "-", 
-      quantity: (value) => value?.toLocaleString() || "0",
+      quantity: (value) => formatIndianNumber(value || "0"),
       uatDate: (value) => value || "-",
       warrantyStart: (value) => value || "-",
       location: (value) => value || "-",
@@ -582,11 +601,11 @@ const spinKeyframes = `
         Object.keys(firstRow).forEach((key) => {
           if (key.match(/^(JFM|AMJ|JAS|OND) \d{4}$/)) {
             formatters[key] = (value) =>
-              value ? `₹${value.toLocaleString()}` : "₹0";
+              value ? `₹${formatIndianNumber(value)}` : "₹0";
           }
           if (key.includes("Total (") && key.includes(" Years)")) {
             formatters[key] = (value) =>
-              value ? `₹${value.toLocaleString()}` : "₹0";
+              value ? `₹${formatIndianNumber(value)}` : "₹0";
           }
         });
       }
@@ -833,7 +852,7 @@ const spinKeyframes = `
           transformedRow["Item Name"] = row.itemName;
           transformedRow["UAT Date"] = row.uatDate;
           transformedRow["Warranty Start"] = row.warrantyStart;
-          transformedRow["Cost"] = row.cost ? `₹${row.cost.toLocaleString()}` : "";
+          transformedRow["Cost"] = row.cost ? `₹${formatIndianNumber(row.cost)}` : "";
           transformedRow["Invoice Number"] = row.invoiceNumber || "";
           transformedRow["Quantity"] = row.quantity || "";
           transformedRow["Location"] = row.location || "";
@@ -842,13 +861,13 @@ const spinKeyframes = `
           sortedQuarters.forEach((quarterDisplay) => {
             // quarterDisplay is already in "QTR YYYY" format from the UI
             const value = row[quarterDisplay];
-            transformedRow[quarterDisplay] = value ? `₹${value.toLocaleString()}` : "₹0";
+            transformedRow[quarterDisplay] = value ? `₹${formatIndianNumber(value)}` : "₹0";
           });
           
           // Add total columns
           Array.from(totalColumns).forEach((totalCol) => {
             const value = row[totalCol];
-            transformedRow[totalCol] = value ? `₹${value.toLocaleString()}` : "₹0";
+            transformedRow[totalCol] = value ? `₹${formatIndianNumber(value)}` : "₹0";
           });
           
           return transformedRow;
@@ -1616,7 +1635,7 @@ const spinKeyframes = `
                             fontSize: "0.875rem",
                           }}
                         >
-                          ₹{product.cost.toLocaleString()} • Qty:{" "}
+                          ₹{formatIndianNumber(product.cost)} • Qty:{" "}
                           {product.quantity} • {product.warrantyYears} years •{" "}
                           {product.source}
                         </div>

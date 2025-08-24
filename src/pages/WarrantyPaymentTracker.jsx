@@ -8,6 +8,33 @@ import { storeWarrantyCalculations } from "../store/slice/warrantyDataSlice";
 import { selectExcelData, selectFileName, selectHasData, selectActiveSheet } from "../store/selectors/excelSelectors";
 import { WarrantyExportManager } from '../utils/exportUtils';
 
+const formatIndianNumber = (num) => {
+  if (num === null || num === undefined || isNaN(num)) return '0.00';
+  
+  // First, ensure exactly 2 decimal places and handle rounding
+  const roundedNum = Math.round(parseFloat(num) * 100) / 100;
+  const formattedNum = roundedNum.toFixed(2);
+  
+  // Split into integer and decimal parts
+  const [integerPart, decimalPart] = formattedNum.split('.');
+  
+  // Handle negative numbers
+  const isNegative = roundedNum < 0;
+  const absIntegerPart = integerPart.replace('-', '');
+  
+  if (absIntegerPart.length <= 3) {
+    return (isNegative ? '-' : '') + absIntegerPart + '.' + decimalPart;
+  }
+  
+  // Apply Indian number formatting to integer part
+  const lastThree = absIntegerPart.slice(-3);
+  const otherNumbers = absIntegerPart.slice(0, -3);
+  const formattedOthers = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  
+  const formatted = formattedOthers + ',' + lastThree + '.' + decimalPart;
+  return (isNegative ? '-' : '') + formatted;
+};
+
 const spinKeyframes = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -570,9 +597,9 @@ const spinKeyframes = `
 
   const warrantyFormatters = useMemo(() => {
     const formatters = {
-      invoiceValue: (value) => (value ? `₹${value.toLocaleString()}` : "₹0"),
+      invoiceValue: (value) => (value ? `₹${formatIndianNumber(value)}` : "₹0"),
       invoiceNumber: (value) => value || "-",
-      quantity: (value) => value?.toLocaleString() || "0",
+      quantity: (value) => formatIndianNumber(value || "0"),
       uatDate: (value) => value || "-",
       warrantyStart: (value) => value || "-",
       location: (value) => value || "-",
@@ -584,11 +611,11 @@ const spinKeyframes = `
         Object.keys(firstRow).forEach((key) => {
           if (key.match(/^(JFM|AMJ|JAS|OND) \d{4}$/)) {
             formatters[key] = (value) =>
-              value ? `₹${value.toLocaleString()}` : "₹0";
+              value ? `₹${formatIndianNumber(value)}` : "₹0";
           }
           if (key.includes("Total (") && key.includes(" Years)")) {
             formatters[key] = (value) =>
-              value ? `₹${value.toLocaleString()}` : "₹0";
+              value ? `₹${formatIndianNumber(value)}` : "₹0";
           }
         });
       }
@@ -835,7 +862,7 @@ const spinKeyframes = `
           transformedRow["Item Name"] = row.itemName;
           transformedRow["UAT Date"] = row.uatDate;
           transformedRow["Warranty Start"] = row.warrantyStart;
-          transformedRow["Invoice Value"] = row.invoiceValue ? `₹${row.invoiceValue.toLocaleString()}` : "";
+          transformedRow["Invoice Value"] = row.invoiceValue ? `₹${formatIndianNumber(row.invoiceValue)}` : "";
           transformedRow["Invoice Number"] = row.invoiceNumber || ""; 
           transformedRow["Quantity"] = row.quantity || "";
           transformedRow["Location"] = row.location || "";
@@ -844,13 +871,13 @@ const spinKeyframes = `
           sortedQuarters.forEach((quarterDisplay) => {
             // quarterDisplay is already in "QTR YYYY" format from the UI
             const value = row[quarterDisplay];
-            transformedRow[quarterDisplay] = value ? `₹${value.toLocaleString()}` : "₹0";
+            transformedRow[quarterDisplay] = value ? `₹${formatIndianNumber(value)}` : "₹0";
           });
           
           // Add total columns
           Array.from(totalColumns).forEach((totalCol) => {
             const value = row[totalCol];
-            transformedRow[totalCol] = value ? `₹${value.toLocaleString()}` : "₹0";
+            transformedRow[totalCol] = value ? `₹${formatIndianNumber(value)}` : "₹0";
           });
           
           return transformedRow;
@@ -1355,7 +1382,7 @@ const WarrantyExportControls = () => {
                               : "#dc2626",
                         }}
                       >
-                        ₹{item.invoiceValue.toLocaleString()}
+                        ₹{formatIndianNumber(item.invoiceValue)}
                         {item.invoiceValue > 10000000 && (
                           <span
                             style={{
@@ -1809,7 +1836,7 @@ const WarrantyExportControls = () => {
                             fontSize: "0.875rem",
                           }}
                         >
-                          ₹{product.invoiceValue.toLocaleString()} • Qty:{" "}
+                          ₹{formatIndianNumber(product.invoiceValue)} • Qty:{" "}
                           {product.quantity} • {product.warrantyYears} years •{" "}
                           {product.source}
                         </div>
@@ -2120,7 +2147,7 @@ const WarrantyExportControls = () => {
               fontWeight: 800,
               marginBottom: "4px"
             }}>
-              ₹{total.toLocaleString()}
+              ₹{formatIndianNumber(total)}
             </div>
             <div style={{
               fontSize: "0.75rem",
@@ -2210,7 +2237,7 @@ const WarrantyExportControls = () => {
                                         fontSize: "2rem",
                                         fontWeight: 800,
                                         marginBottom: "8px",
-                                      }}>₹ {total.toLocaleString()}
+                                      }}>₹ {formatIndianNumber(total)}
                                     </div>
                                     <div style={{
                                       fontSize: "0.75rem",
@@ -2318,7 +2345,7 @@ const WarrantyExportControls = () => {
                             fontWeight: 800,
                             color: "#374151"
                           }}>
-                            ₹ {(totalPaid + totalBalance).toLocaleString()}
+                            ₹ {formatIndianNumber((totalPaid + totalBalance))}
                             </div>
                           </div>
                           
@@ -2341,7 +2368,7 @@ const WarrantyExportControls = () => {
                               fontSize: "1.25rem",
                               fontWeight: 800,
                               color: "#059669"
-                            }}> ₹{totalPaid.toLocaleString()}
+                            }}> ₹{formatIndianNumber(totalPaid)}
                             </div>
                             <div style={{
                               fontSize: "0.75rem",
@@ -2373,7 +2400,7 @@ const WarrantyExportControls = () => {
               fontWeight: 800,
               color: "#d97706"
             }}>
-              ₹{totalBalance.toLocaleString()}
+              ₹{formatIndianNumber(totalBalance)}
             </div>
             <div style={{
               fontSize: "0.75rem",
