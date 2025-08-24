@@ -11,7 +11,7 @@ function isLeapYear(year) {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
 
-// FIXED: Single definition of getQuarterDates (was duplicated)
+// Single definition of getQuarterDates (was duplicated)
 function getQuarterDates(year) {
   return {
     JFM: [new Date(year, 0, 5), new Date(year, 3, 4)], // Jan 5 - Apr 4
@@ -52,7 +52,7 @@ function addMonths(date, months) {
   return result;
 }
 
-// FIXED: More precise relativedelta equivalent
+//  More precise relativedelta equivalent
 function addRelativeDelta(date, years = 0, months = 0, days = 0) {
   const result = new Date(date);
   
@@ -72,7 +72,7 @@ function addRelativeDelta(date, years = 0, months = 0, days = 0) {
   return result;
 }
 
-// FIXED: Main AMC calculation with corrected split details data flow
+// Main AMC calculation with corrected split details data flow
 function calculateAmcSchedule(
   startDate,
   invoiceNumber,
@@ -119,7 +119,7 @@ function calculateAmcSchedule(
 
     const fullQuarterAmount = (totalAmc * roi) / 4;
 
-    // FIXED: More precise calendar year determination
+    // More precise calendar year determination
     const startCalendarYear = yearStart.getFullYear();
     const endCalendarYear = yearEnd.getFullYear();
 
@@ -129,7 +129,7 @@ function calculateAmcSchedule(
       for (const qName of ["JFM", "AMJ", "JAS", "OND"]) {
         const [qStart, qEnd] = quartersInYear[qName];
 
-        // FIXED: More precise overlap detection
+        //  More precise overlap detection
         if (qEnd.getTime() < yearStart.getTime() || qStart.getTime() > yearEnd.getTime()) {
           continue;
         }
@@ -204,7 +204,7 @@ function calculateAmcSchedule(
       let totalAmount = 0;
       const contributions = [];
 
-      // FIXED: Better data extraction from quarterContributions
+      //  Better data extraction from quarterContributions
       for (const yearIndex in yearMap) {
         const displayYearMap = yearMap[yearIndex];
         if (displayYearMap[displayYear]) {
@@ -244,7 +244,7 @@ function calculateAmcSchedule(
           actualAmount = Math.max(0, actualAmount);
           totalAmount += actualAmount;
 
-          // FIXED: Store complete contribution data with all details
+          // Store complete contribution data with all details
           contributions.push({
             "AMC Year": yearIdx + 1,
             "ROI Rate": roi,
@@ -260,12 +260,12 @@ function calculateAmcSchedule(
         }
       }
 
-      const withoutGst = totalAmount; 
-      const withGst = withoutGst * (1 + gstRate);
+       const withoutGst = Math.round(totalAmount * 100) / 100;
+       const withGst = Math.round(withoutGst * (1 + gstRate) * 100) / 100;
 
       schedule[key] = [withGst, withoutGst];
       
-      // FIXED: Store split details with complete, non-zero data
+      // Store split details with complete, non-zero data
       splitDetails[key] = contributions.map(contrib => {
         return {
           "AMC Year": contrib["AMC Year"],
@@ -293,7 +293,7 @@ function calculateAmcSchedule(
   return { schedule, splitDetails };
 }
 
-// FIXED: Calculate AMC schedule for a single product with improved split details handling
+// Calculate AMC schedule for a single product with improved split details handling
 function calculateProductAMC(product, settings = {}) {
   const roiRates = settings.roiRates || ROI_RATES;
   const amcPercentage = settings.amcPercentage || AMC_PERCENTAGE;
@@ -306,7 +306,7 @@ function calculateProductAMC(product, settings = {}) {
       throw new Error('Invalid product object provided');
     }
 
-    // Parse dates - FIXED to handle multiple field name variations
+    // Parse dates to handle multiple field name variations
     const uatDateStr = product.uatDate || product.UAT_Date || product.uat_date || product["UAT Date"];
     if (!uatDateStr) {
       throw new Error(`Missing UAT date for product: ${product.productName || product["Item Name"] || "Unknown"}`);
@@ -349,11 +349,11 @@ function calculateProductAMC(product, settings = {}) {
     );
 
 
-    // FIXED: Convert to quarters array format with proper split details attachment
+    // Convert to quarters array format with proper split details attachment
     const quarters = [];
     const productSplitDetails = {};
 
-    // CRITICAL FIX FOR ISSUE 4: Process schedule FIRST to populate quarters array
+    //  Process schedule FIRST to populate quarters array
     for (const [key, amounts] of Object.entries(schedule)) {
       if (!Array.isArray(amounts) || amounts.length !== 2) {
         console.warn(`Invalid amounts for key ${key}:`, amounts);
@@ -369,10 +369,9 @@ function calculateProductAMC(product, settings = {}) {
         continue;
       }
 
-      // FIXED: Get split details for this specific quarter
+      //  Get split details for this specific quarter
       const quarterSplitDetails = splitDetails[key] || [];
-      
-
+    
       // Create quarter object
       const quarterObj = {
         id: `${product.id || Math.random()}_${key}`,
@@ -394,7 +393,7 @@ function calculateProductAMC(product, settings = {}) {
 
       quarters.push(quarterObj);
 
-      // FIXED: Now populate productSplitDetails AFTER quarter is created and has split details
+      // Now populate productSplitDetails AFTER quarter is created and has split details
       if (quarterSplitDetails.length > 0) {
         // Convert key format from "YYYY-QQQ" to "QQQ-YYYY" for UI compatibility
         const uiKey = `${quarter}-${year}`;
@@ -408,8 +407,8 @@ function calculateProductAMC(product, settings = {}) {
           calculationType: detail["Calculation Type"] || "Unknown",
           currentYearContribution: detail["Current Year Contribution"] || 0,
           residualFromPrevious: detail["Residual from Previous"] || 0,
-          amountWithoutGst: detail["Amount Without GST"] || 0,  // ✅ Consistent naming
-          amountWithGst: detail["Amount With GST"] || 0,        // ✅ Consistent naming
+          amountWithoutGst: detail["Amount Without GST"] || 0,  
+          amountWithGst: detail["Amount With GST"] || 0,        
           days: detail["Days"] || 90,
           totalDaysInQuarter: detail["Total Days in Quarter"] || 90,
           displayYear: detail["Display Year"] || yearNum
@@ -462,7 +461,7 @@ function formatQuarterKey(quarter, year) {
   return `${quarter}-${year}`;
 }
 
-// FIXED: Process chunk of products with better error handling
+// Process chunk of products with better error handling
 function processChunk(products, settings, chunkIndex) {
   if (!Array.isArray(products)) {
     throw new Error('Products must be an array');
@@ -501,7 +500,7 @@ function processChunk(products, settings, chunkIndex) {
   return results;
 }
 
-// FIXED: Worker message handler with comprehensive error handling
+// Worker message handler with comprehensive error handling
 self.onmessage = function(event) {
   try {
     if (!event.data || typeof event.data !== 'object') {
