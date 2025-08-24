@@ -1,6 +1,6 @@
-// Fixed selectors for excelSelectors.js - to match your actual slice structure
+// selectors for excelSelectors.js - to match your actual slice structure
 
-// Your slice stores data in these properties:
+//  slice stores data in these properties:
 // - data: {} (the sheets object)
 // - sheetNames: [] (array of sheet names)  
 // - activeSheet: '' (current sheet name)
@@ -48,7 +48,7 @@ export const selectFileName = (state) => {
 };
 
 export const selectUploadHistory = (state) => {
-  // Your slice doesn't have upload history, return empty array
+  //  slice doesn't have upload history, return empty array
   return [];
 };
 

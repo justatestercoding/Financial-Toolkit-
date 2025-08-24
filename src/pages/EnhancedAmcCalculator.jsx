@@ -33,8 +33,8 @@ const ManualProductForm = ({ onAddProduct }) => {
       !productName.trim() ||
       !invoiceValue ||
       parseFloat(invoiceValue) <= 0 ||
-      !invoiceNumber.trim() || '',
-      invoiceNumber.length < 3 ||
+      !invoiceNumber.trim() ||
+      invoiceNumber.length < 1 ||
       invoiceNumber.length > 25 ||
       !location.trim() ||
       !uatDate
@@ -513,7 +513,7 @@ const excelEpoch = new Date(1900, 0, 1);
     // Add manual products
     const combinedData = [...processed, ...manualProducts];
     return combinedData;
-  }, [excelData, hasExcelData, fileName, manualProducts]);
+  }, [fileName, manualProducts]);
 
   // Web Worker hook
   const {
@@ -541,8 +541,22 @@ const excelEpoch = new Date(1900, 0, 1);
   const isCalculating = progress.isProcessing;
   const rawResults =
     hasCachedResult && useCache ? cachedResult.results : results;
-  const currentSummary =
-    hasCachedResult && useCache ? cachedResult.metadata : summary;
+  const currentSummary = useMemo(() => {
+    if (hasCachedResult && useCache && cachedResult.metadata) {
+      return cachedResult.metadata;
+    }
+    if (results.length === 0) return summary;
+    const totalValue = results.reduce((sum, r) => {
+    // Use the actual quarter amounts, not the rounded display values
+    const quarterTotal = (r.quarters || []).reduce((qSum, q) => qSum + (q.totalAmount || 0), 0);
+    return sum + quarterTotal;
+  }, 0);
+  
+  return {
+    ...summary,
+    totalValue: Math.round(totalValue * 100) / 100  // Round only final display value
+  };
+}, [results, summary, hasCachedResult, useCache, cachedResult]);
 
   // Transform data to match Excel AMC Schedule format 
   const currentResults = useMemo(() => {
@@ -757,10 +771,9 @@ const excelEpoch = new Date(1900, 0, 1);
         const workbook = XLSX.utils.book_new();
 
         // Summary sheet
-        const totalValue = data.reduce(
-          (sum, r) => sum + (r.totalAmountWithGST || 0),
-          0
-        );
+          const totalValue = Math.round(
+            results.reduce((sum, r) => sum + (r.totalAmountWithGST || 0), 0) * 100
+          ) / 100;
         const summaryData = [
           ["AMC Calculation Summary"],
           ["Generated on:", new Date().toLocaleString()],
@@ -867,8 +880,8 @@ const excelEpoch = new Date(1900, 0, 1);
         // Quarter Totals Sheet
         const quarterTotalData = Object.entries(quarterTotals)
           .sort(([a], [b]) => {
-            const [yearA, quarterA] = a.split("-");
-            const [yearB, quarterB] = b.split("-");
+            const [quarterA, yearA] = a.split("-");  
+            const [quarterB, yearB] = b.split("-");
             if (yearA !== yearB) return parseInt(yearA) - parseInt(yearB);
             const qOrder = { JFM: 0, AMJ: 1, JAS: 2, OND: 3 };
             return qOrder[quarterA] - qOrder[quarterB];
@@ -890,61 +903,239 @@ const excelEpoch = new Date(1900, 0, 1);
 
         // Split-Wise Breakdown Sheet 
         const splitRows = [];
-        data.forEach((product) => {
-          if (product.splitDetails) {
-            Object.entries(product.splitDetails).forEach(
-              ([quarterKey, details]) => {
-                if (details && details.length > 0) {
-                  details.forEach((detail) => {
-                    splitRows.push({
-                      "Item Name": product.productName,
-                      Quarter: detail.quarter,
-                      "Display Year": detail.displayYear,
-                      "Quarter-Label": quarterKey,
-                      "AMC Year": detail.amcYear,
-                      "ROI Rate": `${(detail.roiRate * 100).toFixed(2)}%`,
-                      "Full Quarter Amount": detail.fullQuarterAmount,
-                      "Prorated Amount": detail.proratedAmount,
-                      "Actual Amount": detail.actualAmount,
-                      "Calculation Type": detail.calculationType,
-                      "Current Year Contribution (₹)":
-                        detail.currentYearContribution,
-                      "Residual from Previous (₹)": detail.residualFromPrevious,
-                      "Amount Without GST": detail.amountWithoutGst,
-                      "Amount With GST": detail.amountWithGst,
-                      "Days Covered": `${detail.days} / ${detail.totalDaysInQuarter}`,
-                    });
-                  });
-                }
+        try {
+          rawResults.forEach((product, productIndex) => {
+            try {
+              // More robust checking for splitDetails
+              if (product && 
+                  product.splitDetails && 
+                  typeof product.splitDetails === 'object' && 
+                  Object.keys(product.splitDetails).length > 0) {
+                
+                Object.entries(product.splitDetails).forEach(([quarterKey, details], quarterIndex) => {
+                  try {
+                    if (Array.isArray(details) && details.length > 0) {
+                      details.forEach((detail, detailIndex) => {
+                        try {
+                          // Validate detail object has required properties
+                          if (detail && typeof detail === 'object') {
+                            
+                            // Parse quarterKey to get quarter and year
+                            let quarter, year;
+                            if (quarterKey.match(/^[A-Z]{3}-\d{4}$/)) {
+                              [quarter, year] = quarterKey.split("-");
+                            } else if (quarterKey.match(/^\d{4}-[A-Z]{3}$/)) {
+                              [year, quarter] = quarterKey.split("-");
+                            } else {
+                              // Fallback parsing
+                              const parts = quarterKey.split("-");
+                              if (parts.length === 2) {
+                                if (!isNaN(parseInt(parts[0]))) {
+                                  [year, quarter] = parts;
+                                } else {
+                                  [quarter, year] = parts;
+                                }
+                              } else {
+                                quarter = "Unknown";
+                                year = "Unknown";
+                              }
+                            }
+
+                            // Safe value extraction with defaults
+                            const roiRate = typeof detail.roiRate === 'number' && !isNaN(detail.roiRate) 
+                              ? detail.roiRate 
+                              : 0;
+                            
+                            const fullQuarterAmount = typeof detail.fullQuarterAmount === 'number' && !isNaN(detail.fullQuarterAmount)
+                              ? detail.fullQuarterAmount
+                              : (typeof detail.actualAmount === 'number' && !isNaN(detail.actualAmount) ? detail.actualAmount : 0);
+                            
+                            const proratedAmount = typeof detail.proratedAmount === 'number' && !isNaN(detail.proratedAmount)
+                              ? detail.proratedAmount
+                              : fullQuarterAmount;
+                            
+                            const actualAmount = typeof detail.actualAmount === 'number' && !isNaN(detail.actualAmount)
+                              ? detail.actualAmount
+                              : proratedAmount;
+                            
+                            const currentYearContribution = typeof detail.currentYearContribution === 'number' && !isNaN(detail.currentYearContribution)
+                              ? detail.currentYearContribution
+                              : actualAmount;
+                            
+                            const residualFromPrevious = typeof detail.residualFromPrevious === 'number' && !isNaN(detail.residualFromPrevious)
+                              ? detail.residualFromPrevious
+                              : 0;
+                            
+                            const amountWithoutGst = typeof detail.amountWithoutGst === 'number' && !isNaN(detail.amountWithoutGst)
+                              ? detail.amountWithoutGst
+                              : (typeof detail.baseAmount === 'number' && !isNaN(detail.baseAmount) ? detail.baseAmount : actualAmount);
+                            
+                            const amountWithGst = typeof detail.amountWithGst === 'number' && !isNaN(detail.amountWithGst)
+                              ? detail.amountWithGst
+                              : (typeof detail.totalAmount === 'number' && !isNaN(detail.totalAmount) ? detail.totalAmount : amountWithoutGst * 1.18);
+                            
+                            const days = typeof detail.days === 'number' && !isNaN(detail.days) && detail.days > 0
+                              ? detail.days
+                              : (typeof detail.daysInQuarter === 'number' && !isNaN(detail.daysInQuarter) ? detail.daysInQuarter : 90);
+                            
+                            const totalDaysInQuarter = typeof detail.totalDaysInQuarter === 'number' && !isNaN(detail.totalDaysInQuarter) && detail.totalDaysInQuarter > 0
+                              ? detail.totalDaysInQuarter
+                              : 90;
+
+                            splitRows.push({
+                              "Item Name": product.productName || "Unknown Product",
+                              "Quarter": quarter || "Unknown",
+                              "Display Year": detail.displayYear || year || "Unknown",
+                              "Quarter-Label": quarterKey || "Unknown",
+                              "AMC Year": detail.amcYear || `Year ${detailIndex + 1}`,
+                              "ROI Rate": `${(roiRate * 100).toFixed(2)}%`,
+                              "Full Quarter Amount": Math.round(fullQuarterAmount * 100) / 100,
+                              "Prorated Amount": Math.round(proratedAmount * 100) / 100,
+                              "Actual Amount": Math.round(actualAmount * 100) / 100,
+                              "Calculation Type": detail.calculationType || "Standard",
+                              "Current Year Contribution (₹)": Math.round(currentYearContribution * 100) / 100,
+                              "Residual from Previous (₹)": Math.round(residualFromPrevious * 100) / 100,
+                              "Amount Without GST": Math.round(amountWithoutGst * 100) / 100,
+                              "Amount With GST": Math.round(amountWithGst * 100) / 100,
+                              "Days Covered": `${days} / ${totalDaysInQuarter}`,
+                            });
+                          }
+                        } catch (detailError) {
+                          console.warn(`Error processing detail ${detailIndex} for ${product.productName}:`, detailError);
+                          // Add a row with available data for debugging
+                          splitRows.push({
+                            "Item Name": product.productName || "Unknown Product",
+                            "Quarter": "ERROR - Detail Processing",
+                            "Display Year": "See Console",
+                            "Quarter-Label": quarterKey || "Unknown",
+                            "AMC Year": `Error in detail ${detailIndex}`,
+                            "ROI Rate": "0%",
+                            "Full Quarter Amount": 0,
+                            "Prorated Amount": 0,
+                            "Actual Amount": 0,
+                            "Calculation Type": "ERROR",
+                            "Current Year Contribution (₹)": 0,
+                            "Residual from Previous (₹)": 0,
+                            "Amount Without GST": 0,
+                            "Amount With GST": 0,
+                            "Days Covered": "0 / 90",
+                          });
+                        }
+                      });
+                    } else {
+                      // No details array or empty array
+                      console.warn(`No valid details for quarter ${quarterKey} in product ${product.productName}`);
+                      splitRows.push({
+                        "Item Name": product.productName || "Unknown Product",
+                        "Quarter": "No Data",
+                        "Display Year": "No Data",
+                        "Quarter-Label": quarterKey || "Unknown",
+                        "AMC Year": "No Data",
+                        "ROI Rate": "0%",
+                        "Full Quarter Amount": 0,
+                        "Prorated Amount": 0,
+                        "Actual Amount": 0,
+                        "Calculation Type": "No Details Available",
+                        "Current Year Contribution (₹)": 0,
+                        "Residual from Previous (₹)": 0,
+                        "Amount Without GST": 0,
+                        "Amount With GST": 0,
+                        "Days Covered": "0 / 90",
+                      });
+                    }
+                  } catch (quarterError) {
+                    console.warn(`Error processing quarter ${quarterKey} for ${product.productName}:`, quarterError);
+                  }
+                });
+              } else {
+                // Product has no split details
+                console.warn(`No split details for product: ${product.productName}`);
+                splitRows.push({
+                  "Item Name": product.productName || "Unknown Product",
+                  "Quarter": "No Split Details",
+                  "Display Year": "N/A",
+                  "Quarter-Label": "N/A",
+                  "AMC Year": "N/A", 
+                  "ROI Rate": "N/A",
+                  "Full Quarter Amount": 0,
+                  "Prorated Amount": 0,
+                  "Actual Amount": 0,
+                  "Calculation Type": "No Split Details Available",
+                  "Current Year Contribution (₹)": 0,
+                  "Residual from Previous (₹)": 0,
+                  "Amount Without GST": 0,
+                  "Amount With GST": 0,
+                  "Days Covered": "N/A",
+                });
               }
-            );
-          }
-        });
+            } catch (productError) {
+              console.warn(`Error processing product ${productIndex}:`, productError);
+              splitRows.push({
+                "Item Name": `ERROR: Product ${productIndex}`,
+                "Quarter": "Product Error",
+                "Display Year": "See Console",
+                "Quarter-Label": "ERROR",
+                "AMC Year": "ERROR",
+                "ROI Rate": "0%",
+                "Full Quarter Amount": 0,
+                "Prorated Amount": 0,
+                "Actual Amount": 0,
+                "Calculation Type": "Product Processing Error",
+                "Current Year Contribution (₹)": 0,
+                "Residual from Previous (₹)": 0,
+                "Amount Without GST": 0,
+                "Amount With GST": 0,
+                "Days Covered": "0 / 90",
+              });
+            }
+          });
+        } catch (splitError) {
+          console.error("Error generating split-wise data:", splitError);
+          // Create a fallback sheet with error message
+          splitRows.push({
+            "Item Name": "ERROR: Split data generation failed",
+            "Quarter": "Check console for details",
+            "Display Year": "",
+            "Quarter-Label": "",
+            "AMC Year": "",
+            "ROI Rate": "0%",
+            "Full Quarter Amount": 0,
+            "Prorated Amount": 0,
+            "Actual Amount": 0,
+            "Calculation Type": "Generation Error",
+            "Current Year Contribution (₹)": 0,
+            "Residual from Previous (₹)": 0,
+            "Amount Without GST": 0,
+            "Amount With GST": 0,
+            "Days Covered": "0 / 90",
+          });
+        }
 
-        const splitSheet = XLSX.utils.json_to_sheet(splitRows);
-        XLSX.utils.book_append_sheet(
-          workbook,
-          splitSheet,
-          "Split-Wise Breakdown"
-        );
-
-        // Year-wise Totals Sheet
-        const yearTotalData = Object.entries(yearTotals)
-          .sort()
-          .map(([year, totals]) => ({
-            Year: year,
-            "Total AMC (with GST) (₹)": totals.withGst,
-            "Total AMC (without GST) (₹)": totals.withoutGst,
-            "GST Amount (₹)": totals.withGst - totals.withoutGst,
-            Location: selectedLocation,
-          }));
-
-        const yearTotalsSheet = XLSX.utils.json_to_sheet(yearTotalData);
-        XLSX.utils.book_append_sheet(
-          workbook,
-          yearTotalsSheet,
-          "Year-wise Totals"
-        );
+        // Only create the sheet if we have data (or error rows)
+        if (splitRows.length > 0) {
+          const splitSheet = XLSX.utils.json_to_sheet(splitRows);
+          XLSX.utils.book_append_sheet(workbook, splitSheet, "Split-Wise Breakdown");
+        } else {
+          // Create an empty sheet with headers only as fallback
+          const emptySheet = XLSX.utils.json_to_sheet([{
+            "Item Name": "No split data available - check calculation",
+            "Quarter": "",
+            "Display Year": "",
+            "Quarter-Label": "",
+            "AMC Year": "",
+            "ROI Rate": "0%",
+            "Full Quarter Amount": 0,
+            "Prorated Amount": 0,
+            "Actual Amount": 0,
+            "Calculation Type": "",
+            "Current Year Contribution (₹)": 0,
+            "Residual from Previous (₹)": 0,
+            "Amount Without GST": 0,
+            "Amount With GST": 0,
+            "Days Covered": "",
+          }]);
+          XLSX.utils.book_append_sheet(workbook, emptySheet, "Split-Wise Breakdown");
+        }
 
         // Download the file
         const locationSuffix =
@@ -2496,244 +2687,205 @@ const excelEpoch = new Date(1900, 0, 1);
             >
               🔍 Select product to view ROI quarter breakdown
             </label>
-            <select
-              value={selectedProduct || ""}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "6px",
-                fontSize: "0.9rem",
-              }}
-            >
-              <option value="">Select a product...</option>
-              {filteredResults.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.productName} - {product.location}
-                </option>
-              ))}
-            </select>
+            
           </div>
 
-          {selectedProduct &&
-            (() => {
-              const product = filteredResults.find(
-                (p) => p.id === selectedProduct
-              );
-              if (!product || !product.splitDetails) return null;
+           <select
+            value={selectedProduct || ""}
+            onChange={(e) => setSelectedProduct(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              fontSize: "0.9rem",
+            }}
+          >
+            <option value="">Select a product...</option>
+            {rawResults && rawResults.length > 0 && rawResults
+              .filter(product => {
+             
+                //  Better validation for split details
+                if (!product.splitDetails || typeof product.splitDetails !== 'object') {
+                  return false;
+                }
 
+                const splitDetailsKeys = Object.keys(product.splitDetails);
+                if (splitDetailsKeys.length === 0) {
+                  return false;
+                }
+
+                // Check if any split detail has actual data
+                const hasValidData = splitDetailsKeys.some(key => {
+                  const details = product.splitDetails[key];
+                  const isValidArray = Array.isArray(details) && details.length > 0;
+                  const hasNonZeroAmounts = isValidArray && details.some(detail => 
+                    (detail.amountWithGst && detail.amountWithGst > 0) ||
+                    (detail.amountWithoutGst && detail.amountWithoutGst > 0) ||
+                    (detail.actualAmount && detail.actualAmount > 0) ||
+                    (detail.currentYearContribution && detail.currentYearContribution > 0)
+                  );
+              
+                  return hasNonZeroAmounts;
+                });
+
+                if (!hasValidData) {
+                  
+                  return false;
+                }
+
+                return true;
+              })
+              .map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.productName} - {product.location} 
+                  ({Object.keys(product.splitDetails || {}).length} quarters with data)
+                </option>
+              ))}
+          </select>
+
+        {selectedProduct &&
+          (() => {
+            const product = rawResults?.find(p => p.id === selectedProduct);
+            
+            if (!product) {
               return (
-                <div>
-                  <h4 style={{ color: "#374151", marginBottom: "16px" }}>
-                    🔍 {product.productName} — ROI Split Breakdown
-                  </h4>
-
-                  {Object.entries(product.splitDetails).map(
-                    ([quarterKey, details]) => {
-                      if (!details || details.length === 0) return null;
-
-                      const [year, quarter] = quarterKey.split("-");
-                      return (
-                        <div key={quarterKey} style={{ marginBottom: "24px" }}>
-                          <h5
-                            style={{ color: "#2563eb", marginBottom: "12px" }}
-                          >
-                            📌 {quarter} {year}
-                          </h5>
-
-                          <div style={{ overflowX: "auto" }}>
-                            <table
-                              style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
-                                fontSize: "0.875rem",
-                              }}
-                            >
-                              <thead>
-                                <tr style={{ backgroundColor: "#f8fafc" }}>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "left",
-                                    }}
-                                  >
-                                    AMC Year
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "left",
-                                    }}
-                                  >
-                                    ROI %
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "left",
-                                    }}
-                                  >
-                                    Days Covered
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "right",
-                                    }}
-                                  >
-                                    Current Year Contribution (₹)
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "right",
-                                    }}
-                                  >
-                                    Residual from Previous (₹)
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "right",
-                                    }}
-                                  >
-                                    Total Without GST (₹)
-                                  </th>
-                                  <th
-                                    style={{
-                                      padding: "8px",
-                                      border: "1px solid #e2e8f0",
-                                      textAlign: "right",
-                                    }}
-                                  >
-                                    Total With GST (₹)
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {details.map((detail, index) => (
-                                  <tr key={index}>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                      }}
-                                    >
-                                      {detail.amcYear}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                      }}
-                                    >
-                                      {(detail.roiRate * 100).toFixed(2)}%
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                      }}
-                                    >
-                                      {detail.days} /{" "}
-                                      {detail.totalDaysInQuarter}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                        textAlign: "right",
-                                      }}
-                                    >
-                                      ₹
-                                      {Math.round(
-                                        detail.currentYearContribution
-                                      ).toLocaleString()}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                        textAlign: "right",
-                                      }}
-                                    >
-                                      ₹
-                                      {Math.round(
-                                        detail.residualFromPrevious
-                                      ).toLocaleString()}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                        textAlign: "right",
-                                      }}
-                                    >
-                                      ₹
-                                      {Math.round(
-                                        detail.amountWithoutGst
-                                      ).toLocaleString()}
-                                    </td>
-                                    <td
-                                      style={{
-                                        padding: "8px",
-                                        border: "1px solid #e2e8f0",
-                                        textAlign: "right",
-                                      }}
-                                    >
-                                      ₹
-                                      {Math.round(
-                                        detail.amountWithGst
-                                      ).toLocaleString()}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: "8px",
-                              fontSize: "0.875rem",
-                              fontWeight: 600,
-                              color: "#059669",
-                            }}
-                          >
-                            🔢 Quarter Total = ₹
-                            {details
-                              .reduce((sum, d) => sum + d.amountWithoutGst, 0)
-                              .toLocaleString()}{" "}
-                            (No GST) + ₹
-                            {(
-                              details.reduce(
-                                (sum, d) => sum + d.amountWithGst,
-                                0
-                              ) -
-                              details.reduce(
-                                (sum, d) => sum + d.amountWithoutGst,
-                                0
-                              )
-                            ).toLocaleString()}{" "}
-                            GST = ₹
-                            {details
-                              .reduce((sum, d) => sum + d.amountWithGst, 0)
-                              .toLocaleString()}
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
+                <div style={{
+                  padding: "16px",
+                  backgroundColor: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  borderRadius: "8px",
+                  color: "#dc2626"
+                }}>
+                 ❌ Product not found. Selected ID: {selectedProduct}
+                 <br/>
+                 Available IDs: {rawResults?.map(p => p.id).join(", ") || "None"}
                 </div>
               );
+            }
+            
+            if (!product.splitDetails || Object.keys(product.splitDetails).length === 0) {
+              return (
+                <div style={{
+                  padding: "16px",
+                  backgroundColor: "#fef3c7",
+                  border: "1px solid #fcd34d",
+                  borderRadius: "8px",
+                  color: "#d97706"
+                }}>
+                  No split details available for: {product.productName}
+                  <br/>
+                  <details style={{ marginTop: "8px" }}>
+                    <summary>Debug Info</summary>
+                    <pre style={{ fontSize: "0.7rem", marginTop: "4px", overflow: "auto" }}>
+                      {JSON.stringify({
+                        productName: product.productName,
+                        hasSplitDetails: !!product.splitDetails,
+                        splitDetailsKeys: Object.keys(product.splitDetails || {}),
+                        quarters: product.quarters?.length || 0
+                      }, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              );
+            }
+
+            return (
+              <div>
+                <h4 style={{ color: "#374151", marginBottom: "16px" }}>
+                  {product.productName} — ROI Split Breakdown
+                </h4>
+
+                {Object.entries(product.splitDetails)
+                  .sort(([a], [b]) => {
+                    const [qA, yearA] = a.split("-");
+                    const [qB, yearB] = b.split("-");
+                    const numYearA = parseInt(yearA);
+                    const numYearB = parseInt(yearB);
+                    if (numYearA !== numYearB) return numYearA - numYearB;
+                    const qOrder = { JFM: 0, AMJ: 1, JAS: 2, OND: 3 };
+                    return qOrder[qA] - qOrder[qB];
+                  })
+                  .map(([quarterKey, details]) => {
+                    if (!details || details.length === 0) return null;
+
+                    const [quarter, year] = quarterKey.split("-");
+                    
+                    return (
+                      <div key={quarterKey} style={{ marginBottom: "24px" }}>
+                        <h5 style={{ color: "#2563eb", marginBottom: "12px" }}>
+                          {quarter} {year} ({details.length} ROI year{details.length > 1 ? 's' : ''})
+                        </h5>
+
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                            <thead>
+                              <tr style={{ backgroundColor: "#f8fafc" }}>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "left" }}>
+                                  AMC Year
+                                </th>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "left" }}>
+                                  ROI %
+                                </th>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "left" }}>
+                                  Days Covered
+                                </th>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                  Current Year Contribution
+                                </th>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                  Residual from Previous
+                                </th>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                  Total Without GST
+                                </th>
+                                <th style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                  Total With GST
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {details.map((detail, index) => (
+                                <tr key={index}>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0" }}>
+                                    {detail.amcYear}
+                                  </td>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0" }}>
+                                    {(detail.roiRate * 100).toFixed(2)}%
+                                  </td>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0" }}>
+                                    {detail.days} / {detail.totalDaysInQuarter}
+                                  </td>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                    ₹{Math.round(detail.currentYearContribution).toLocaleString()}
+                                  </td>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                    ₹{Math.round(detail.residualFromPrevious).toLocaleString()}
+                                  </td>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                    ₹{Math.round(detail.amountWithoutGst).toLocaleString()}
+                                  </td>
+                                  <td style={{ padding: "8px", border: "1px solid #e2e8f0", textAlign: "right" }}>
+                                    ₹{Math.round(detail.amountWithGst).toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div style={{ marginTop: "8px", fontSize: "0.875rem", fontWeight: 600, color: "#059669" }}>
+                          Quarter Total = ₹{Math.round(details.reduce((sum, d) => sum + d.amountWithoutGst, 0)).toLocaleString()} (Without GST) + 
+                          ₹{Math.round(details.reduce((sum, d) => sum + (d.amountWithGst - d.amountWithoutGst), 0)).toLocaleString()} (GST) = 
+                          ₹{Math.round(details.reduce((sum, d) => sum + d.amountWithGst, 0)).toLocaleString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            );
             })()}
+          
         </div>
       )}
 

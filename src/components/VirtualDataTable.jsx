@@ -316,7 +316,6 @@ const VirtualDataTable = ({
       return filteredData;
     }
 
-    const startTime = performance.now();
     setIsSorting(true);
 
     // Use a more efficient sorting algorithm for large datasets
@@ -326,17 +325,6 @@ const VirtualDataTable = ({
     sorted.sort((a, b) =>
       compareValues(a, b, sortConfig.key, sortConfig.direction)
     );
-
-    const endTime = performance.now();
-    const sortDuration = endTime - startTime;
-
-    if (sortDuration > 100) {
-      console.log(
-        `⚡ Sorting ${sorted.length} items by ${
-          sortConfig.key
-        } took ${sortDuration.toFixed(2)}ms`
-      );
-    }
 
     // Reset sorting indicator after a brief delay to show the loading state
     setTimeout(() => setIsSorting(false), 100);
