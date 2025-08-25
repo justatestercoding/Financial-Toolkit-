@@ -1,11 +1,9 @@
 # SuvidhaSetu
-
 A React-based dashboard to manage AMC calculations, warranty tracking, and payment summaries. Built with Tailwind CSS, Recharts, Lucide icons, and XLSX export support.
 
 ---
 
-##  Features
-
+## Features
 - 📊 AMC Calculator with quarter-wise visualization
 - 📅 Warranty tracker with automated status updates
 - 📥 Excel export using `xlsx`
@@ -14,22 +12,19 @@ A React-based dashboard to manage AMC calculations, warranty tracking, and payme
 
 ---
 
-##  Prerequisites
+## Prerequisites
 Ensure the following are installed in your system:
-
 - Node.js (v16+ recommended)
 - npm
 - Git
 
 ---
 
-
-
+## Installation
 
 ### Install the following in terminal, the path should be your project directory
 ```bash
 npm install
-
 npm install lucide-react
 npm install xlsx
 npm install xlsx file-saver
@@ -40,26 +35,55 @@ npm install react-router-dom
 npm install -D @tailwindcss/postcss
 npm install antd @ant-design/icons react-window react-window-infinite-loader web-vitals
 
-#To Start the development server
+# To Start the development server
 npm start
+```
 
 ---
 
-### Required Excel Columns
-```bash
+## Required Excel Columns
 
 To ensure correct AMC and warranty processing, your Excel file **must** include the following columns:
 
-| Column Name       | Description                                                                 |
-|-------------------|-----------------------------------------------------------------------------|
-| Item Name         | Name of the product (e.g., Laptop, Server, Software License).               |
-| Invoice Value     | Invoice value or cost of the product (numeric).                             |
-| Invoice Number    | Unique invoice identifier for the product(takes characters aswell)          |
-| Location          | Location/site of the product installation.                                  |
-| UAT Date          | User Acceptance Testing / Installation / Go-Live date (used for AMC start). |
-| Quantity          | Number of product units or Qty (default = 1 if not provided).               |
+| Column Name    | Description                                                                 |
+|----------------|-----------------------------------------------------------------------------|
+| Item Name      | Name of the product (e.g., Laptop, Server, Software License)               |
+| Invoice Value  | Invoice value or cost of the product (numeric)                             |
+| Invoice Number | Unique invoice identifier for the product (accepts characters as well)     |
+| Location       | Location/site of the product installation                                  |
+| UAT Date       | User Acceptance Testing / Installation / Go-Live date (used for AMC start) |
+| Quantity       | Number of product units or Qty (default = 1 if not provided)               |
 
- Important Notes 
-- Column names should match exactly as above (case-insensitive).  
-- Additional columns are allowed but will be ignored.  
-- If any required column is missing, the file will be rejected or default values will be applied.  
+### Important Notes
+- Column names should match exactly as above (case-insensitive)
+- Additional columns are allowed but will be ignored
+- If any required column is missing, the file will be rejected or default values will be applied
+
+---
+
+## Usage
+
+1. **Upload Excel File**: Click the upload button and select your Excel file with the required columns
+2. **AMC Calculator**: View quarter-wise AMC calculations and visualizations
+3. **Warranty Tracker**: Monitor warranty status with automated updates
+4. **Export Data**: Download processed data in Excel format
+5. **Dashboard**: View comprehensive analytics and summaries
+
+---
+
+## File Structure
+```
+suvidhasetu/
+├── src/
+│   ├── components/
+│   ├── utils/
+│   ├── styles/
+│   └── App.js
+├── public/
+├── package.json
+└── README.md
+```
+
+
+
+
