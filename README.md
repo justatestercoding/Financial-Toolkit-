@@ -71,18 +71,6 @@ To ensure correct AMC and warranty processing, your Excel file **must** include 
 
 ---
 
-## File Structure
-```
-suvidhasetu/
-├── src/
-│   ├── components/
-│   ├── utils/
-│   ├── styles/
-│   └── App.js
-├── public/
-├── package.json
-└── README.md
-```
 
 
 
