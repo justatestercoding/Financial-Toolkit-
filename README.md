@@ -46,6 +46,7 @@ npm start
 ---
 
 ### Required Excel Columns
+```bash
 
 To ensure correct AMC and warranty processing, your Excel file **must** include the following columns:
 
