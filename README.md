@@ -42,3 +42,25 @@ npm install antd @ant-design/icons react-window react-window-infinite-loader web
 
 #To Start the development server
 npm start
+
+---
+
+### Required Excel Columns
+
+To ensure correct AMC and warranty processing, your Excel file **must** include the following columns:
+
+| Column Name       | Description                                                                 |
+|-------------------|-----------------------------------------------------------------------------|
+| **Item Name**     | Name of the product (e.g., Laptop, Server, Software License).               |
+| **Cost**          | Invoice value or cost of the product (numeric).                             |
+| **Invoice Number**| Unique invoice identifier for the product(takes characters aswell)          |
+| **Location**      | Location/site of the product installation.                                  |
+| **UAT Date**      | User Acceptance Testing / Installation / Go-Live date (used for AMC start). |
+| **Quantity**      | Number of product units or Qty (default = 1 if not provided).               |
+| **Category**      | Product category (e.g., Hardware, Software, General).                       |
+| **ROI (%)**       | Rate of Interest percentage applied for AMC (default = 0 if not provided).  |
+
+ **Important Notes**  
+- Column names should match exactly as above (case-insensitive).  
+- Additional columns are allowed but will be ignored.  
+- If any required column is missing, the file will be rejected or default values will be applied.  
